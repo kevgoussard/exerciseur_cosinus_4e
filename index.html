@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Le cosinus : 5 questions</title>
+<style>
+:root{
+  --paper:#fbfcff; --grid:#dbe4f7; --ink:#1b2a4a; --muted:#5b6a8a;
+  --known:#1f5fd6; --unknown:#c0267a; --hl:#ffe66d; --hl-edge:#d9b400;
+  --ok:#157a3d; --ok-bg:#e3f6e9; --bad:#b42318; --bad-bg:#fdeceb; --btn:#1b2a4a;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; color:var(--ink); font:18px/1.5 "Trebuchet MS",system-ui,sans-serif;
+  background-color:var(--paper);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:28px 28px; min-height:100vh;
+}
+main{max-width:760px; margin:0 auto; padding:20px 16px 48px}
+header{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap}
+h1{font-size:1.5rem; margin:0}
+.dots{display:flex; gap:8px; align-items:center}
+.dot{width:16px; height:16px; border-radius:50%; border:2px solid var(--ink); background:#fff}
+.dot.now{background:var(--hl); border-color:var(--hl-edge)}
+.dot.done{background:var(--ink)}
+.card{background:#fff; border:2px solid var(--ink); border-radius:12px; padding:16px; margin-top:16px}
+.enonce{margin:0; font-size:1.1rem}
+.fig{position:relative; container-type:inline-size; margin:12px auto 0}
+.fig svg{display:block; width:100%; height:auto}
+.fig text{font-family:inherit}
+.bubble{
+  position:absolute; transform:translate(-50%,-50%); display:flex; align-items:center; gap:.3em;
+  font-size:clamp(14px,3.3cqw,21px); background:var(--hl); border:2px solid var(--hl-edge);
+  border-radius:1.2em; padding:.35em .6em; white-space:nowrap; font-weight:700;
+}
+.bubble.ok{background:var(--ok-bg); border-color:var(--ok)}
+.bubble select{font:inherit; font-weight:700; border:2px solid var(--ink); border-radius:.4em; padding:.15em .2em; background:#fff; color:var(--ink); cursor:pointer}
+.bubble input{
+  width:3em; font:inherit; text-align:center; border:2px solid var(--ink); border-radius:.4em;
+  padding:.15em; background:#fff; color:var(--ink);
+}
+.consigne{margin:0 0 10px; font-weight:700}
+.row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.row input{
+  width:6.5em; font:inherit; font-size:1.15rem; padding:.35em .5em; border:2px solid var(--ink);
+  border-radius:8px; text-align:right;
+}
+button.main{
+  font:inherit; font-weight:700; background:var(--btn); color:#fff; border:2px solid var(--btn);
+  border-radius:10px; padding:.5em 1.1em; cursor:pointer;
+}
+button.main:hover{background:#2c3f6b}
+button:disabled,input:disabled{opacity:.7; cursor:not-allowed}
+:focus-visible{outline:3px solid var(--known); outline-offset:2px}
+.msg{margin:12px 0 0; padding:10px 12px; border-radius:8px; border:2px solid transparent; min-height:0}
+.msg:empty{display:none}
+.msg.ok{background:var(--ok-bg); border-color:var(--ok); color:var(--ok)}
+.msg.bad{background:var(--bad-bg); border-color:var(--bad); color:var(--bad)}
+.msg.info{background:#eef3ff; border-color:var(--known); color:var(--ink)}
+.hint{color:var(--muted); font-size:.9rem; margin:8px 0 0}
+#next{margin-top:14px}
+.score{font-size:4rem; font-weight:700; margin:.2em 0; line-height:1}
+.end{text-align:center}
+.sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)}
+.fig.vert{max-width:460px; margin-left:auto; margin-right:auto}
+.frac{display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; line-height:1.25; margin:0 .2em}
+.frac>span:first-child{border-bottom:2px solid currentColor; padding:0 .4em .05em}
+.frac>span:last-child{padding-top:.05em}
+.frac .one{opacity:.35}
+.rappel{display:block; margin-top:8px; color:var(--ink)}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Le cosinus</h1>
+    <div class="dots" id="dots" aria-label="Progression"></div>
+  </header>
+
+  <section id="quiz" class="card">
+    <p class="enonce" id="enonce"></p>
+    <div class="fig" id="fig"></div>
+
+    <div id="step1" style="margin-top:12px">
+      <p class="consigne">Étape 1 : complète la bulle jaune.</p>
+      <button class="main" id="btn1">Vérifier</button>
+    </div>
+
+    <div id="step2" hidden style="margin-top:12px">
+      <p class="consigne" id="consigne2"></p>
+      <div class="row">
+        <label for="len" class="sr" id="lenLabel"></label>
+        <input id="len" inputmode="decimal" autocomplete="off"> <span>cm</span>
+        <button class="main" id="btn2">Vérifier</button>
+      </div>
+      <p class="hint">N'arrondis qu'à la fin du calcul.</p>
+    </div>
+
+    <div class="msg" id="msg" role="status" aria-live="polite"></div>
+    <button class="main" id="next" hidden></button>
+  </section>
+
+  <section id="end" class="card end" hidden>
+    <p class="enonce">Ton score</p>
+    <p class="score" id="score"></p>
+    <p id="bilan"></p>
+    <button class="main" id="restart">Recommencer</button>
+  </section>
+</main>
+
+<script>
+const NB_QUESTIONS = 5;
+const ESSAIS_LONGUEUR = 2;   // nombre d'essais pour la longueur (étape 2)
+const NOMS = [["A","B","C"],["E","F","G"],["K","L","M"],["R","S","T"],["D","E","F"]];
+
+const $ = id => document.getElementById(id);
+const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+const fr = x => String(x).replace(".", ",");
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = rand(0, i); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+let questions, idx, score, op, essais, etape, erreur1;
+
+/* ---------- Génération ---------- */
+function creerQuestion(type) {
+  const noms = NOMS[rand(0, NOMS.length - 1)];
+  for (;;) {
+    const ang = rand(20, 70);
+    const connu = type === "mult" ? rand(6, 15) : rand(4, 12);
+    const cos = Math.cos(ang * Math.PI / 180);
+    const exact = type === "mult" ? connu * cos : connu / cos;
+    const f = exact * 10 - Math.floor(exact * 10);
+    if (Math.abs(f - 0.5) < 0.08) continue;      // évite les arrondis ambigus
+    return { type, noms, ang, connu, reponse: Math.round(exact * 10) / 10,
+             opAttendue: type === "mult" ? "×" : "÷" };
+  }
+}
+function nouvellePartie() {
+  const types = shuffle(["mult", "mult", "div", "div", Math.random() < 0.5 ? "mult" : "div"]);
+  const orients = shuffle([0, 1, 2, 3, 4, 5, 6, 7]);   // 8 orientations (symétrie + rotations), toutes différentes
+  questions = types.slice(0, NB_QUESTIONS).map((t, k) => ({ ...creerQuestion(t), orient: orients[k] }));
+  idx = 0; score = 0;
+  $("quiz").hidden = false; $("end").hidden = true;
+  afficher();
+}
+
+/* ---------- Figure ---------- */
+function figure(q) {
+  const [a, b, c] = q.noms;
+  const mx = q.orient & 1, k = q.orient >> 1;                   // symétrie, puis k quarts de tour
+  const C0 = { x: 278, y: 213 };
+  const lin = v => { let x = mx ? -v.x : v.x, y = v.y; for (let i = 0; i < k; i++) [x, y] = [-y, x]; return { x, y }; };
+  const T = p => lin({ x: p.x - C0.x, y: p.y - C0.y });
+  const f = p => { const t = T(p); return `${t.x.toFixed(1)} ${t.y.toFixed(1)}`; };
+  const boites = [];                                            // pour calculer le cadre de la figure
+  const pt = p => { const t = T(p); boites.push([t.x, t.y, t.x, t.y]); };
+  const lab = (p, off, size, fill, contenu) => {
+    const t = T({ x: p.x + off.x, y: p.y + off.y }), len = Math.hypot(off.x, off.y) || 1, r = lin(off).x / len;
+    const anc = r > 0.3 ? "start" : r < -0.3 ? "end" : "middle";
+    const w = contenu.length * size * 0.62, x0 = anc === "start" ? t.x : anc === "end" ? t.x - w : t.x - w / 2;
+    boites.push([x0, t.y - size * 0.6, x0 + w, t.y + size * 0.6]);
+    return `<text x="${t.x.toFixed(1)}" y="${t.y.toFixed(1)}" font-size="${size}" font-weight="700" text-anchor="${anc}" dominant-baseline="central" fill="${fill}">${contenu}</text>`;
+  };
+
+  const th = q.ang * Math.PI / 180, cs = Math.cos(th), sn = Math.sin(th), H = 260;
+  const A = { x: 250, y: 290 }, B = { x: A.x + H * cs, y: A.y }, C = { x: B.x, y: A.y - H * sn };
+  const AB = H * cs, n = { x: -sn, y: -cs };
+  const pos = (phi, r) => ({ x: A.x + r * Math.cos(phi), y: A.y - r * Math.sin(phi) });
+  [A, B, C].forEach(pt);
+
+  // Flèche : arc autour du sommet A, toujours à l'extérieur du triangle
+  const d = Math.min(48, 0.45 * AB), R = 135, marge = 9 * Math.PI / 180;
+  const p0 = th + marge, p1 = 2 * Math.PI - marge, pts = [];
+  for (let m = 0; m <= 48; m++) { const t = m / 48; pts.push(pos(p0 + (p1 - p0) * t, d + (R - d) * Math.sin(Math.PI * t))); }
+  pts.forEach(pt);
+  const sens = q.type === "mult" ? pts : pts.slice().reverse();
+  const chemin = "M " + sens.map(f).join(" L ");
+  const M = T(pos((p0 + p1) / 2, R));                           // centre de la bulle
+  const BW = 172, BH = 54;
+  boites.push([M.x - BW / 2, M.y - BH / 2, M.x + BW / 2, M.y + BH / 2]);
+
+  const hyp = a + c, adj = a + b;
+  const txtHyp = q.type === "mult" ? `${hyp} = ${fr(q.connu)} cm` : `${hyp} = ?`;
+  const txtAdj = q.type === "mult" ? `${adj} = ?` : `${adj} = ${fr(q.connu)} cm`;
+  const colHyp = q.type === "mult" ? "var(--known)" : "var(--unknown)";
+  const colAdj = q.type === "mult" ? "var(--unknown)" : "var(--known)";
+  const ph = { x: A.x + (C.x - A.x) * .8, y: A.y + (C.y - A.y) * .8 };
+  const pa = { x: A.x + Math.max(AB / 2, 125), y: A.y };
+  const ar = 38, sweep = mx ? 1 : 0;
+
+  const corps = `
+    <polygon points="${f(A)} ${f(B)} ${f(C)}" fill="#f1f5ff" stroke="#1b2a4a" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M ${f({ x: B.x - 16, y: B.y })} L ${f({ x: B.x - 16, y: B.y - 16 })} L ${f({ x: B.x, y: B.y - 16 })}" fill="none" stroke="#1b2a4a" stroke-width="2"/>
+    <path d="M ${f({ x: A.x + ar, y: A.y })} A ${ar} ${ar} 0 0 ${sweep} ${f({ x: A.x + ar * cs, y: A.y - ar * sn })}" fill="none" stroke="#1b2a4a" stroke-width="2"/>
+    ${lab(pos(th / 2, 70), { x: 0, y: 0 }, 16, "#1b2a4a", q.ang + "°")}
+    <path d="${chemin}" fill="none" stroke="#1b2a4a" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#ah)"/>
+    ${lab(A, { x: -14, y: 10 }, 20, "#1b2a4a", a)}
+    ${lab(B, { x: 14, y: 10 }, 20, "#1b2a4a", b)}
+    ${lab(C, { x: 14, y: -10 }, 20, "#1b2a4a", c)}
+    ${lab(ph, { x: 30 * n.x, y: 30 * n.y }, 19, colHyp, txtHyp)}
+    ${lab(pa, { x: 0, y: 34 }, 19, colAdj, txtAdj)}`;
+
+  // Cadre ajusté au contenu (avec une taille minimale), centré
+  const x0 = Math.min(...boites.map(t => t[0])), x1 = Math.max(...boites.map(t => t[2]));
+  const y0 = Math.min(...boites.map(t => t[1])), y1 = Math.max(...boites.map(t => t[3]));
+  const W = Math.max(x1 - x0 + 24, 480), Hh = Math.max(y1 - y0 + 24, 320);
+  const vx = (x0 + x1) / 2 - W / 2, vy = (y0 + y1) / 2 - Hh / 2;
+
+  const svg = `
+  <svg viewBox="${vx.toFixed(1)} ${vy.toFixed(1)} ${W.toFixed(1)} ${Hh.toFixed(1)}" role="img" aria-label="Triangle ${a}${b}${c} rectangle en ${b}, angle de ${q.ang} degrés en ${a}">
+    <defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#1b2a4a"/></marker></defs>${corps}
+  </svg>`;
+  const bulle = `
+  <div class="bubble" id="bubble" style="left:${((M.x - vx) / W * 100).toFixed(2)}%;top:${((M.y - vy) / Hh * 100).toFixed(2)}%;font-size:clamp(13px,${(165 / W * 100).toFixed(2)}cqw,24px)">
+    <select id="opSel" aria-label="Choisir × ou ÷">
+      <option value="">?</option><option value="×">×</option><option value="÷">÷</option>
+    </select>
+    <span>cos(</span><input id="ang" inputmode="numeric" maxlength="3" autocomplete="off" aria-label="angle"><span>°)</span>
+  </div>`;
+  return { html: svg + bulle, maxw: Math.round(W * 1.25) };
+}
+
+/* ---------- Affichage ---------- */
+function afficher() {
+  const q = questions[idx], [a, b, c] = q.noms;
+  op = null; essais = 0; etape = 1; erreur1 = false;
+  $("dots").innerHTML = questions.map((_, i) =>
+    `<span class="dot ${i < idx ? "done" : i === idx ? "now" : ""}"></span>`).join("") +
+    `<span style="margin-left:6px;font-weight:700">Question ${idx + 1} / ${NB_QUESTIONS}</span>`;
+  const inconnue = q.type === "mult" ? a + b : a + c;
+  const donnee = q.type === "mult" ? `${a}${c} = ${fr(q.connu)} cm` : `${a}${b} = ${fr(q.connu)} cm`;
+  $("enonce").textContent = `Le triangle ${a}${b}${c} est rectangle en ${b}. On a ${b}${a}${c} = ${q.ang}° et ${donnee}. Calcule ${inconnue}.`;
+  const fg = figure(q);
+  $("fig").innerHTML = fg.html; $("fig").style.maxWidth = fg.maxw + "px";
+  $("consigne2").textContent = `Étape 2 : calcule ${inconnue} et écris sa longueur arrondie au dixième.`;
+  $("lenLabel").textContent = `Longueur de ${inconnue}`;
+  $("step1").hidden = false; $("step2").hidden = true; $("next").hidden = true;
+  $("len").value = ""; $("len").disabled = false; $("btn2").disabled = false;
+  message("", "");
+  $("opSel").onchange = e => { op = e.target.value || null; };
+}
+function message(txt, type, html) {
+  const m = $("msg"); if (html) m.innerHTML = txt; else m.textContent = txt; m.className = "msg " + type;
+}
+
+/* ---------- Étape 1 : × ou ÷ et cos(angle) ---------- */
+function verifier1() {
+  const q = questions[idx];
+  const val = parseInt($("ang").value.replace(/[^\d]/g, ""), 10);
+  if (!op) return message("Choisis × ou ÷ dans le menu de la bulle.", "info");
+  if (isNaN(val)) return message("Complète cos( ) avec l'angle.", "info");
+  const okOp = op === q.opAttendue, okAng = val === q.ang;
+  if (okOp && okAng) {
+    $("bubble").classList.add("ok");
+    $("opSel").disabled = true; $("ang").disabled = true;
+    $("step1").hidden = true; $("step2").hidden = false; etape = 2;
+    message(`Bien vu : ${op} cos(${q.ang}°). Tu peux maintenant calculer.`, "ok");
+    $("len").focus();
+    return;
+  }
+  erreur1 = true;                                    // un 2e essai sera nécessaire : 0,5 point au lieu de 1
+  const [a, b, c] = q.noms;
+  const depart = q.type === "mult" ? `[${a}${c}] (l'hypoténuse)` : `[${a}${b}] (le côté adjacent)`;
+  const arrivee = q.type === "mult" ? `[${a}${b}] (le côté adjacent)` : `[${a}${c}] (l'hypoténuse)`;
+  let html = "";
+  if (!okOp) html += `Regarde le sens de la flèche : on part de ${depart} pour aller vers ${arrivee}.` +
+    `<span class="rappel">Rappel : <span class="frac"><span>cos(angle)</span><span class="one">1</span></span> = ` +
+    `<span class="frac"><span>côté adjacent</span><span>hypoténuse</span></span></span>`;
+  if (!okAng) html += (html ? "<br>" : "") + "Dans cos( ), on écrit la mesure de l'angle aigu connu, celui qui est marqué sur la figure.";
+  message(html, "bad", true);
+}
+
+/* ---------- Étape 2 : longueur ---------- */
+function verifier2() {
+  const q = questions[idx];
+  const brut = $("len").value.trim().replace(",", ".").replace(/\s*cm$/i, "");
+  const v = parseFloat(brut);
+  if (brut === "" || isNaN(v)) return message("Écris un nombre, par exemple 7,5.", "info");
+  essais++;
+  if (Math.abs(v - q.reponse) < 0.001) {
+    const gain = (erreur1 || essais > 1) ? 0.5 : 1;
+    score += gain;
+    return fin("ok", gain === 1 ? `Bravo ! ${fr(q.reponse)} cm. +1 point.`
+                                : `Bien ! ${fr(q.reponse)} cm. +0,5 point (il t'a fallu un deuxième essai).`);
+  }
+  if (essais < ESSAIS_LONGUEUR) {
+    return message("Pas tout à fait. Vérifie ton calcul et ton arrondi au dixième, puis réessaie.", "bad");
+  }
+  const [a, b, c] = q.noms;
+  const calcul = q.type === "mult" ? `${a}${b} = ${fr(q.connu)} × cos(${q.ang}°)` : `${a}${c} = ${fr(q.connu)} ÷ cos(${q.ang}°)`;
+  fin("bad", `Ce n'est pas ça. La bonne réponse était ${fr(q.reponse)} cm : ${calcul}.`);
+}
+function fin(type, txt) {
+  message(txt, type);
+  $("len").disabled = true; $("btn2").disabled = true;
+  const dernier = idx === NB_QUESTIONS - 1;
+  $("next").textContent = dernier ? "Voir mon score" : "Question suivante";
+  $("next").hidden = false; $("next").focus();
+}
+function suivante() {
+  if (idx < NB_QUESTIONS - 1) { idx++; afficher(); return; }
+  $("quiz").hidden = true; $("end").hidden = false;
+  $("dots").innerHTML = "";
+  $("score").textContent = `${fr(score)} / ${NB_QUESTIONS}`;
+  $("bilan").textContent = score === NB_QUESTIONS ? "Sans faute, bravo !"
+    : score >= 3 ? "Bon travail ! Encore un essai pour viser le sans-faute ?"
+    : "Continue à t'entraîner : relis la méthode et recommence.";
+}
+
+$("btn1").onclick = verifier1;
+$("btn2").onclick = verifier2;
+$("next").onclick = suivante;
+$("restart").onclick = nouvellePartie;
+document.addEventListener("keydown", e => {
+  if (e.key !== "Enter") return;
+  if (e.target.id === "ang") verifier1();
+  else if (e.target.id === "len") verifier2();
+});
+nouvellePartie();
+</script>
+</body>
+</html>
