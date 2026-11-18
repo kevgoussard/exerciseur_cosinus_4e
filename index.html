@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Trigonométrie : calculer une longueur avec le cosinus</title>
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --paper:#fbfcff; --grid:#dbe4f7; --ink:#1b2a4a; --muted:#5b6a8a;
@@ -17,7 +18,7 @@ body{
   background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
   background-size:28px 28px; min-height:100vh;
 }
-main{max-width:760px; margin:0 auto; padding:20px 16px 48px}
+main{max-width:1100px; margin:0 auto; padding:20px 16px 48px}
 header{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap}
 h1{font-size:1.5rem; margin:0}
 .sub{margin:0; color:var(--muted); font-size:1rem}
@@ -60,7 +61,7 @@ button:disabled,input:disabled{opacity:.7; cursor:not-allowed}
 .msg.bad{background:var(--bad-bg); border-color:var(--bad); color:var(--bad)}
 .msg.info{background:#eef3ff; border-color:var(--known); color:var(--ink)}
 .hint{color:var(--muted); font-size:.9rem; margin:8px 0 0}
-#next{margin-top:14px}
+#next{margin-top:0}
 .score{font-size:4rem; font-weight:700; margin:.2em 0; line-height:1}
 .end{text-align:center}
 .sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)}
@@ -76,6 +77,25 @@ button:disabled,input:disabled{opacity:.7; cursor:not-allowed}
 .champs input{font:inherit; padding:.4em .5em; border:2px solid var(--ink); border-radius:8px; margin-top:4px; background:#fff; color:var(--ink)}
 .end .msg{text-align:left; max-width:460px; margin-left:auto; margin-right:auto}
 #restart{margin-top:18px}
+.work{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(260px,1fr);gap:16px;align-items:start}
+@media(max-width:860px){.work{grid-template-columns:1fr}}
+.fig.noarrow .arrow,.fig.noarrow .bubble{display:none}
+.pill{margin-left:10px;background:#fff;border:2px solid var(--ink);border-radius:999px;padding:2px 12px;font-weight:700;white-space:nowrap}
+.hat{position:relative;display:inline-block;line-height:1}
+.hat::after{content:"";position:absolute;left:50%;top:-.2em;width:.3em;height:.3em;border-left:.09em solid currentColor;border-top:.09em solid currentColor;transform:translateX(-50%) rotate(45deg)}
+.natbox select{font-family:"Segoe UI",Arial,Helvetica,sans-serif}
+.natbox{position:absolute;transform:translate(-50%,-50%);white-space:nowrap}
+.nat{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0 10px;font-weight:700}
+.natbox select{font:inherit;font-weight:700;border:2px solid var(--ink);border-radius:8px;padding:.25em .4em;background:#fff;color:var(--ink);cursor:pointer}
+.natbox select.ok{background:var(--ok-bg);border-color:var(--ok)}
+.natbox select.bad{background:var(--bad-bg);border-color:var(--bad)}
+.natbox select:disabled{opacity:1;color:var(--ink);cursor:default;appearance:none;-webkit-appearance:none;padding-right:.5em}
+.proof{border:2px solid var(--ink);border-radius:10px;padding:12px 14px 12px 44px;position:relative;min-height:200px;line-height:30px;background-color:#fff;background-image:linear-gradient(var(--grid) 1px,transparent 1px);background-size:100% 30px;background-position:0 12px;overflow-wrap:anywhere}
+.proof::before{content:"";position:absolute;left:34px;top:0;bottom:0;width:2px;background:#e5484d;opacity:.55}
+.proof>strong{display:block;line-height:30px;color:var(--ink)}
+.proof p{margin:0;font-family:Kalam,"Comic Sans MS",cursive;font-size:1.05rem;color:#26307a}
+.proof p.vide{font-family:inherit;font-size:.9rem;color:var(--muted)}
+.proof .f{font-weight:700;color:var(--ink)}
 [hidden]{display:none !important}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4.4.1/dist/email.min.js"></script>
@@ -92,10 +112,16 @@ button:disabled,input:disabled{opacity:.7; cursor:not-allowed}
 
   <section id="quiz" class="card">
     <p class="enonce" id="enonce"></p>
-    <div class="fig" id="fig"></div>
+    <div class="work"><div>
+    <div class="fig noarrow" id="fig"></div>
 
-    <div id="step1" style="margin-top:12px">
-      <p class="consigne">Étape 1 : complète la bulle jaune.</p>
+    <div id="step0" style="margin-top:12px">
+      <p class="consigne" id="consigne0"></p>
+      <button class="main" id="btn0">Vérifier</button>
+    </div>
+
+    <div id="step1" hidden style="margin-top:12px">
+      <p class="consigne">Étape 2 : complète la bulle jaune.</p>
       <button class="main" id="btn1">Vérifier</button>
     </div>
 
@@ -105,11 +131,14 @@ button:disabled,input:disabled{opacity:.7; cursor:not-allowed}
         <label for="len" class="sr" id="lenLabel"></label>
         <input id="len" inputmode="decimal" autocomplete="off"> <span>cm</span>
         <button class="main" id="btn2">Vérifier</button>
+        <button class="main" id="next" hidden></button>
       </div>
     </div>
 
     <div class="msg" id="msg" role="status" aria-live="polite"></div>
-    <button class="main" id="next" hidden></button>
+    </div>
+    <aside class="proof"><strong>Rédaction</strong><div id="red"></div></aside>
+    </div>
   </section>
 
   <section id="end" class="card end" hidden>
@@ -145,10 +174,11 @@ const $ = id => document.getElementById(id);
 const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
 const fr = x => String(x).replace(".", ",");
 // Nom d'un angle avec le chapeau sur le sommet : angle de sommet a entre [ab] et [ac] -> B Â C
-const angleNom = (a, b, c) => b + a + "\u0302" + c;
+const angleTxt = (a, b, c) => b + a + "\u0302" + c;            // texte brut (menus déroulants)
+const angleNom = (a, b, c) => `${b}<span class="hat">${a}</span>${c}`;   // HTML : chapeau dessiné en CSS
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = rand(0, i); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
-let questions, idx, score, op, essais, etape, erreur1;
+let questions, idx, score, op, essais, etape, erreur1, red = [];
 
 /* ---------- Génération ---------- */
 function creerQuestion(type) {
@@ -167,7 +197,7 @@ function creerQuestion(type) {
 function nouvellePartie() {
   const types = shuffle(["mult", "mult", "div", "div", Math.random() < 0.5 ? "mult" : "div"]);
   const orients = shuffle([0, 1, 2, 3, 4, 5, 6, 7]);   // 8 orientations (symétrie + rotations), toutes différentes
-  questions = types.slice(0, NB_QUESTIONS).map((t, k) => ({ ...creerQuestion(t), orient: orients[k], gain: 0 }));
+  questions = types.slice(0, NB_QUESTIONS).map((t, k) => ({ ...creerQuestion(t), orient: orients[k], gain: 0, permut: Math.random() < 0.5 }));
   idx = 0; score = 0;
   $("quiz").hidden = false; $("end").hidden = true;
   afficher();
@@ -181,13 +211,14 @@ function figure(q) {
   const lin = v => { let x = mx ? -v.x : v.x, y = v.y; for (let i = 0; i < k; i++) [x, y] = [-y, x]; return { x, y }; };
   const T = p => lin({ x: p.x - C0.x, y: p.y - C0.y });
   const f = p => { const t = T(p); return `${t.x.toFixed(1)} ${t.y.toFixed(1)}`; };
-  const boites = [];                                            // pour calculer le cadre de la figure
+  const boites = [], lboxes = {};                                            // pour calculer le cadre de la figure
   const pt = p => { const t = T(p); boites.push([t.x, t.y, t.x, t.y]); };
-  const lab = (p, off, size, fill, contenu) => {
+  const lab = (p, off, size, fill, contenu, key) => {
     const t = T({ x: p.x + off.x, y: p.y + off.y }), len = Math.hypot(off.x, off.y) || 1, r = lin(off).x / len;
     const anc = r > 0.3 ? "start" : r < -0.3 ? "end" : "middle";
     const w = contenu.length * size * 0.62, x0 = anc === "start" ? t.x : anc === "end" ? t.x - w : t.x - w / 2;
     boites.push([x0, t.y - size * 0.6, x0 + w, t.y + size * 0.6]);
+    if (key) lboxes[key] = [x0, t.y - size * 0.6, x0 + w, t.y + size * 0.6];
     return `<text x="${t.x.toFixed(1)}" y="${t.y.toFixed(1)}" font-size="${size}" font-weight="700" text-anchor="${anc}" dominant-baseline="central" fill="${fill}">${contenu}</text>`;
   };
 
@@ -205,7 +236,7 @@ function figure(q) {
   const sens = q.type === "mult" ? pts : pts.slice().reverse();
   const chemin = "M " + sens.map(f).join(" L ");
   const M = T(pos((p0 + p1) / 2, R));                           // centre de la bulle
-  const BW = 172, BH = 54;
+  const BW = 172, BH = 46;
   boites.push([M.x - BW / 2, M.y - BH / 2, M.x + BW / 2, M.y + BH / 2]);
 
   const hyp = a + c, adj = a + b;
@@ -217,17 +248,44 @@ function figure(q) {
   const pa = { x: A.x + Math.max(AB / 2, 125), y: A.y };
   const ar = 38, sweep = mx ? 1 : 0;
 
+  // Menus placés sous l'étiquette : si l'étiquette est au-dessus de son segment, on l'éloigne pour laisser la place au menu
+  const extra = (dir, base) => { const u = lin(dir), len = Math.hypot(u.x, u.y) || 1, ux = u.x / len, uy = u.y / len; return (Math.abs(ux) <= 0.6 && uy < -0.2) ? base + Math.min(150, 40 / Math.abs(uy)) : base; };
+  const hOff = extra({ x: n.x, y: n.y }, 30), aOff = extra({ x: 0, y: 1 }, 34);
   const corps = `
     <polygon points="${f(A)} ${f(B)} ${f(C)}" fill="#f1f5ff" stroke="#1b2a4a" stroke-width="3" stroke-linejoin="round"/>
     <path d="M ${f({ x: B.x - 16, y: B.y })} L ${f({ x: B.x - 16, y: B.y - 16 })} L ${f({ x: B.x, y: B.y - 16 })}" fill="none" stroke="#1b2a4a" stroke-width="2"/>
     <path d="M ${f({ x: A.x + ar, y: A.y })} A ${ar} ${ar} 0 0 ${sweep} ${f({ x: A.x + ar * cs, y: A.y - ar * sn })}" fill="none" stroke="#1b2a4a" stroke-width="2"/>
     ${lab(pos(th / 2, 70), { x: 0, y: 0 }, 16, "#1b2a4a", q.ang + "°")}
-    <path d="${chemin}" fill="none" stroke="#1b2a4a" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#ah)"/>
+    <path class="arrow" d="${chemin}" fill="none" stroke="#1b2a4a" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#ah)"/>
     ${lab(A, { x: -14, y: 10 }, 20, "#1b2a4a", a)}
     ${lab(B, { x: 14, y: 10 }, 20, "#1b2a4a", b)}
     ${lab(C, { x: 14, y: -10 }, 20, "#1b2a4a", c)}
-    ${lab(ph, { x: 30 * n.x, y: 30 * n.y }, 19, colHyp, txtHyp)}
-    ${lab(pa, { x: 0, y: 34 }, 19, colAdj, txtAdj)}`;
+    ${lab(ph, { x: hOff * n.x, y: hOff * n.y }, 19, colHyp, txtHyp, "hyp")}
+    ${lab(pa, { x: 0, y: aOff }, 19, colAdj, txtAdj, "adj")}`;
+
+  // Menus de l'étape 1 : posés à côté de l'étiquette de chaque côté, en s'éloignant du segment
+  const optLong = `côté adjacent à l'angle ${angleTxt(a, b, c)}`, FS = 15, SW = Math.round((optLong.length + 3) * FS * 0.52 + 30), SH = 30;
+  const selPos = {}, placed = [];
+  const R4 = bx => ({ x1: bx[0], y1: bx[1], x2: bx[2], y2: bx[3] });
+  const ovl = (r, b) => Math.max(0, Math.min(r.x2, b.x2) - Math.max(r.x1, b.x1)) * Math.max(0, Math.min(r.y2, b.y2) - Math.max(r.y1, b.y1));
+  const obst = pts.map(T);                                       // flèche
+  [[A, B], [A, C], [B, C]].forEach(([p1, p2]) => { for (let i = 0; i <= 20; i++) obst.push(T({ x: p1.x + (p2.x - p1.x) * i / 20, y: p1.y + (p2.y - p1.y) * i / 20 })); });
+  const bub = { x1: M.x - BW / 2, x2: M.x + BW / 2, y1: M.y - BH / 2, y2: M.y + BH / 2 };
+  [["hyp", { x: n.x, y: n.y }, "adj"], ["adj", { x: 0, y: 1 }, "hyp"]].forEach(([k, dir, autre]) => {
+    const bx = lboxes[k], lx = (bx[0] + bx[2]) / 2, ly = (bx[1] + bx[3]) / 2, lw = bx[2] - bx[0];
+    const u = lin(dir), ux = u.x / (Math.hypot(u.x, u.y) || 1), sg = Math.abs(ux) > 0.3 ? Math.sign(ux) : 0;
+    const xa = sg > 0 ? bx[0] + SW / 2 : sg < 0 ? bx[2] - SW / 2 : lx, yb = bx[3] + 6 + SH / 2, dh = lw / 2 + SW / 2 + 10, s1 = sg || 1;
+    let best = null, bc = 1e12;
+    [[xa, yb], [lx, yb], [lx + s1 * dh, ly], [lx - s1 * dh, ly], [xa, bx[1] - 6 - SH / 2]].forEach(([x, y], i) => {
+      const r = { x1: x - SW / 2 - 4, x2: x + SW / 2 + 4, y1: y - SH / 2 - 4, y2: y + SH / 2 + 4 };
+      const c = i * 5 + obst.filter(o => o.x > r.x1 && o.x < r.x2 && o.y > r.y1 && o.y < r.y2).length * 40
+        + ovl(r, bub) + ovl(r, R4(lboxes[autre])) * 2 + placed.reduce((t, b) => t + ovl(r, b), 0) * 2;
+      if (c < bc) { bc = c; best = { x, y }; }
+    });
+    selPos[k] = best;
+    placed.push({ x1: best.x - SW / 2, x2: best.x + SW / 2, y1: best.y - SH / 2, y2: best.y + SH / 2 });
+    boites.push([best.x - SW / 2, best.y - SH / 2, best.x + SW / 2, best.y + SH / 2]);
+  });
 
   // Cadre ajusté au contenu (avec une taille minimale), centré
   const x0 = Math.min(...boites.map(t => t[0])), x1 = Math.max(...boites.map(t => t[2]));
@@ -241,39 +299,73 @@ function figure(q) {
       <path d="M0 0 L10 5 L0 10 z" fill="#1b2a4a"/></marker></defs>${corps}
   </svg>`;
   const bulle = `
-  <div class="bubble" id="bubble" style="left:${((M.x - vx) / W * 100).toFixed(2)}%;top:${((M.y - vy) / Hh * 100).toFixed(2)}%;font-size:clamp(13px,${(165 / W * 100).toFixed(2)}cqw,24px)">
+  <div class="bubble" id="bubble" style="left:${((M.x - vx) / W * 100).toFixed(2)}%;top:${((M.y - vy) / Hh * 100).toFixed(2)}%;font-size:max(11px,${(15 / W * 100).toFixed(2)}cqw)">
     <select id="opSel" aria-label="Choisir × ou ÷">
       <option value="">?</option><option value="×">×</option><option value="÷">÷</option>
     </select>
     <span>cos(</span><input id="ang" inputmode="numeric" maxlength="3" autocomplete="off" aria-label="angle"><span>°)</span>
   </div>`;
-  return { html: svg + bulle, maxw: Math.round(W * 1.25) };
+  const optsH = `<option value="">?</option><option value="hyp">hypoténuse</option><option value="adj">${optLong}</option>`;
+  const menus = ["hyp", "adj"].map(k => `
+  <div class="natbox" style="left:${((selPos[k].x - vx) / W * 100).toFixed(2)}%;top:${((selPos[k].y - vy) / Hh * 100).toFixed(2)}%;font-size:max(11px,${(FS / W * 100).toFixed(2)}cqw)">
+    <select id="nat_${k}" data-att="${k}" aria-label="Nature du côté ${k === "hyp" ? hyp : adj}">${optsH}</select>
+  </div>`).join("");
+  return { html: svg + bulle + menus, maxw: Math.round(W * 1.25), ratio: W / Hh };
 }
 
 /* ---------- Affichage ---------- */
 function afficher() {
   const q = questions[idx], [a, b, c] = q.noms;
-  op = null; essais = 0; etape = 1; erreur1 = false;
+  op = null; essais = 0; etape = 0; erreur1 = false; red = [];
   $("dots").innerHTML = questions.map((_, i) =>
     `<span class="dot ${i < idx ? "done" : i === idx ? "now" : ""}"></span>`).join("") +
-    `<span style="margin-left:6px;font-weight:700">Question ${idx + 1} / ${NB_QUESTIONS}</span>`;
+    `<span style="margin-left:6px;font-weight:700">Question ${idx + 1} / ${NB_QUESTIONS}</span>` +
+    `<span class="pill" id="scoreLive">Score : ${fr(score)} / ${NB_QUESTIONS}</span>`;
   const inconnue = q.type === "mult" ? a + b : a + c;
   const donnee = q.type === "mult" ? `${a}${c} = ${fr(q.connu)} cm` : `${a}${b} = ${fr(q.connu)} cm`;
-  $("enonce").textContent = `Le triangle ${a}${b}${c} est rectangle en ${b}. On a ${angleNom(a, b, c)} = ${q.ang}° et ${donnee}. Calcule ${inconnue}.`;
+  $("enonce").innerHTML = `Le triangle ${a}${b}${c} est rectangle en ${b}. On a ${angleNom(a, b, c)} = ${q.ang}° et ${donnee}. Calcule ${inconnue}.`;
   const fg = figure(q);
-  $("fig").innerHTML = fg.html; $("fig").style.maxWidth = fg.maxw + "px";
-  $("consigne2").textContent = `Étape 2 : calcule ${inconnue} et écris sa longueur arrondie au dixième.`;
+  $("fig").innerHTML = fg.html; $("fig").style.maxWidth = `min(${fg.maxw}px, ${(50 * fg.ratio).toFixed(1)}vh)`;
+  $("consigne2").textContent = `Étape 3 : calcule ${inconnue} et écris sa longueur arrondie au dixième.`;
   $("lenLabel").textContent = `Longueur de ${inconnue}`;
-  $("step1").hidden = false; $("step2").hidden = true; $("next").hidden = true;
+  $("step0").hidden = false; $("step1").hidden = true; $("step2").hidden = true; $("next").hidden = true;
+  $("fig").classList.add("noarrow"); $("btn0").disabled = false; preparerNat(q);
   $("len").value = ""; $("len").disabled = false; $("btn2").disabled = false;
   message("", "");
   $("opSel").onchange = e => { op = e.target.value || null; };
 }
+function rendreRed() {
+  $("red").innerHTML = red.length ? red.map(l => `<p>${l}</p>`).join("") : `<p class="vide">La rédaction s'écrira au fil des étapes.</p>`;
+}
+function preparerNat(q) {
+  const [a, b, c] = q.noms;
+  $("consigne0").innerHTML = `Étape 1 : avec les menus de la figure, indique la nature des côtés [${a + c}] et [${a + b}] pour l'angle ${angleNom(a, b, c)}.`;
+  ["hyp", "adj"].forEach(k => { const sel = $("nat_" + k); sel.onchange = () => { sel.className = ""; }; });
+  rendreRed();
+}
 function message(txt, type, html) {
   const m = $("msg"); if (html) m.innerHTML = txt; else m.textContent = txt; m.className = "msg " + type;
+  if (txt) m.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
 
-/* ---------- Étape 1 : × ou ÷ et cos(angle) ---------- */
+/* ---------- Étape 1 : nature des côtés ---------- */
+function verifier0() {
+  const q = questions[idx], [a, b, c] = q.noms, sels = [$("nat_hyp"), $("nat_adj")];
+  if (sels.some(x => !x.value)) return message("Choisis une réponse dans chacun des deux menus.", "info");
+  const ok = sels.map(x => x.value === x.dataset.att);
+  sels.forEach((x, i) => { x.className = ok[i] ? "ok" : "bad"; });
+  if (ok[0] && ok[1]) {
+    sels.forEach(x => { x.disabled = true; }); $("btn0").disabled = true;
+    red.push(`Le triangle ${a}${b}${c} est rectangle en ${b}.`, `L'hypoténuse est [${a + c}].`, `Le côté adjacent à l'angle ${angleNom(a, b, c)} est [${a + b}].`);
+    rendreRed();
+    $("fig").classList.remove("noarrow"); $("step0").hidden = true; $("step1").hidden = false; etape = 1;
+    return message("Bien ! Une flèche et une bulle jaune sont apparues sur la figure : complète la bulle.", "ok");
+  }
+  erreur1 = true;
+  message(`Rappel : l'hypoténuse est le côté opposé à l'angle droit. Le côté adjacent à l'angle ${angleNom(a, b, c)} est l'autre côté de cet angle.`, "bad", true);
+}
+
+/* ---------- Étape 2 : × ou ÷ et cos(angle) ---------- */
 function verifier1() {
   const q = questions[idx];
   const val = parseInt($("ang").value.replace(/[^\d]/g, ""), 10);
@@ -285,7 +377,8 @@ function verifier1() {
     $("opSel").disabled = true; $("ang").disabled = true;
     $("step1").hidden = true; $("step2").hidden = false; etape = 2;
     const [a1, b1, c1] = q.noms, inc = q.type === "mult" ? a1 + b1 : a1 + c1;
-    message(`Bien ! ${inc} = ${fr(q.connu)} ${op} cos(${q.ang}°). Utilise maintenant ta calculatrice pour conclure.`, "ok");
+    red.push(`On a : <span class="f">${inc} = ${fr(q.connu)} ${op} cos(${q.ang}°)</span>`); rendreRed();
+    message("Bien ! Utilise maintenant ta calculatrice pour conclure.", "ok");
     $("len").focus();
     return;
   }
@@ -310,16 +403,17 @@ function verifier2() {
   essais++;
   if (Math.abs(v - q.reponse) < 0.001) {
     const gain = (erreur1 || essais > 1) ? 0.5 : 1;
-    score += gain; q.gain = gain;
+    score += gain; q.gain = gain; $("scoreLive").textContent = `Score : ${fr(score)} / ${NB_QUESTIONS}`;
     const eq = q.type === "mult" ? `${a}${b} = ${a}${c} × cos(${q.ang}°) = ${fr(q.reponse)} cm`
                                  : `${a}${c} = ${a}${b} ÷ cos(${q.ang}°) = ${fr(q.reponse)} cm`;
-    return fin("ok", `${gain === 1 ? "Bravo !" : "Bien !"}<br>${a}${b}${c} est rectangle en ${b}, donc on a : ${eq}.<br>` +
-                     `${gain === 1 ? "+1 point" : "+0,5 point (il t'a fallu un deuxième essai)"}`, true);
+    red.push(`${q.type === "mult" ? a + b : a + c} ≈ ${fr(q.reponse)} cm`); rendreRed();
+    return fin("ok", `${gain === 1 ? "Bravo !" : "Bien !"}<br>${gain === 1 ? "+1 point" : "+0,5 point (il t'a fallu un deuxième essai)"}`, true);
   }
   if (essais < ESSAIS_LONGUEUR) {
     return message("Pas tout à fait. Vérifie ton calcul et ton arrondi au dixième, puis réessaie.", "bad");
   }
   const calcul = q.type === "mult" ? `${a}${b} = ${fr(q.connu)} × cos(${q.ang}°)` : `${a}${c} = ${fr(q.connu)} ÷ cos(${q.ang}°)`;
+  red.push(`${q.type === "mult" ? a + b : a + c} ≈ ${fr(q.reponse)} cm`); rendreRed();
   fin("bad", `Ce n'est pas ça. La bonne réponse était ${fr(q.reponse)} cm : ${calcul}.`);
 }
 function fin(type, txt, html) {
@@ -327,7 +421,7 @@ function fin(type, txt, html) {
   $("len").disabled = true; $("btn2").disabled = true;
   const dernier = idx === NB_QUESTIONS - 1;
   $("next").textContent = dernier ? "Voir mon score" : "Question suivante";
-  $("next").hidden = false; $("next").focus();
+  $("next").hidden = false;
 }
 function suivante() {
   if (idx < NB_QUESTIONS - 1) { idx++; afficher(); return; }
@@ -366,15 +460,11 @@ function envoyer(e) {
 }
 
 $("envoi").onsubmit = envoyer;
+$("btn0").onclick = verifier0;
 $("btn1").onclick = verifier1;
 $("btn2").onclick = verifier2;
 $("next").onclick = suivante;
 $("restart").onclick = nouvellePartie;
-document.addEventListener("keydown", e => {
-  if (e.key !== "Enter") return;
-  if (e.target.id === "ang") verifier1();
-  else if (e.target.id === "len") verifier2();
-});
 nouvellePartie();
 </script>
 </body>
