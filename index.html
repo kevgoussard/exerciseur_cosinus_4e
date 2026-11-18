@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Le cosinus : 5 questions</title>
+<title>Trigonométrie : calculer une longueur avec le cosinus</title>
 <style>
 :root{
   --paper:#fbfcff; --grid:#dbe4f7; --ink:#1b2a4a; --muted:#5b6a8a;
@@ -20,6 +20,7 @@ body{
 main{max-width:760px; margin:0 auto; padding:20px 16px 48px}
 header{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap}
 h1{font-size:1.5rem; margin:0}
+.sub{margin:0; color:var(--muted); font-size:1rem}
 .dots{display:flex; gap:8px; align-items:center}
 .dot{width:16px; height:16px; border-radius:50%; border:2px solid var(--ink); background:#fff}
 .dot.now{background:var(--hl); border-color:var(--hl-edge)}
@@ -69,13 +70,23 @@ button:disabled,input:disabled{opacity:.7; cursor:not-allowed}
 .frac>span:last-child{padding-top:.05em}
 .frac .one{opacity:.35}
 .rappel{display:block; margin-top:8px; color:var(--ink)}
+.envoi{max-width:460px; margin:20px auto 0; text-align:left; border-top:2px dashed #b9c6e6; padding-top:16px}
+.champs{display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px}
+.champs label{flex:1 1 160px; display:flex; flex-direction:column; font-weight:700}
+.champs input{font:inherit; padding:.4em .5em; border:2px solid var(--ink); border-radius:8px; margin-top:4px; background:#fff; color:var(--ink)}
+.end .msg{text-align:left; max-width:460px; margin-left:auto; margin-right:auto}
+#restart{margin-top:18px}
 [hidden]{display:none !important}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4.4.1/dist/email.min.js"></script>
 </head>
 <body>
 <main>
   <header>
-    <h1>Le cosinus</h1>
+    <div>
+      <h1>Trigonométrie</h1>
+      <p class="sub">Calculer une longueur en utilisant le cosinus</p>
+    </div>
     <div class="dots" id="dots" aria-label="Progression"></div>
   </header>
 
@@ -95,7 +106,6 @@ button:disabled,input:disabled{opacity:.7; cursor:not-allowed}
         <input id="len" inputmode="decimal" autocomplete="off"> <span>cm</span>
         <button class="main" id="btn2">Vérifier</button>
       </div>
-      <p class="hint">N'arrondis qu'à la fin du calcul.</p>
     </div>
 
     <div class="msg" id="msg" role="status" aria-live="polite"></div>
@@ -106,11 +116,27 @@ button:disabled,input:disabled{opacity:.7; cursor:not-allowed}
     <p class="enonce">Ton score</p>
     <p class="score" id="score"></p>
     <p id="bilan"></p>
+    <form id="envoi" class="envoi" novalidate>
+      <p class="consigne">Envoie ton résultat à ton professeur :</p>
+      <div class="champs">
+        <label>Prénom <input id="prenom" maxlength="40" autocomplete="off" required></label>
+        <label>Classe <input id="classe" maxlength="20" autocomplete="off" placeholder="ex. : 3e A" required></label>
+      </div>
+      <button class="main" id="btnEnvoi" type="submit">Envoyer mon score</button>
+    </form>
+    <div class="msg" id="msgEnvoi" role="status" aria-live="polite"></div>
     <button class="main" id="restart">Recommencer</button>
   </section>
 </main>
 
 <script>
+/* ---------- Configuration EmailJS (à remplir, voir les explications) ---------- */
+const EMAILJS = {
+  publicKey:  "ATJ81EsZMjUM7kMEV",
+  serviceId:  "service_ddxhm89",
+  templateId: "template_ycpslgy"
+};
+
 const NB_QUESTIONS = 5;
 const ESSAIS_LONGUEUR = 2;   // nombre d'essais pour la longueur (étape 2)
 const NOMS = [["A","B","C"],["E","F","G"],["K","L","M"],["R","S","T"],["D","E","F"]];
@@ -118,6 +144,8 @@ const NOMS = [["A","B","C"],["E","F","G"],["K","L","M"],["R","S","T"],["D","E","
 const $ = id => document.getElementById(id);
 const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
 const fr = x => String(x).replace(".", ",");
+// Nom d'un angle avec le chapeau sur le sommet : angle de sommet a entre [ab] et [ac] -> B Â C
+const angleNom = (a, b, c) => b + a + "\u0302" + c;
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = rand(0, i); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
 let questions, idx, score, op, essais, etape, erreur1;
@@ -139,7 +167,7 @@ function creerQuestion(type) {
 function nouvellePartie() {
   const types = shuffle(["mult", "mult", "div", "div", Math.random() < 0.5 ? "mult" : "div"]);
   const orients = shuffle([0, 1, 2, 3, 4, 5, 6, 7]);   // 8 orientations (symétrie + rotations), toutes différentes
-  questions = types.slice(0, NB_QUESTIONS).map((t, k) => ({ ...creerQuestion(t), orient: orients[k] }));
+  questions = types.slice(0, NB_QUESTIONS).map((t, k) => ({ ...creerQuestion(t), orient: orients[k], gain: 0 }));
   idx = 0; score = 0;
   $("quiz").hidden = false; $("end").hidden = true;
   afficher();
@@ -231,7 +259,7 @@ function afficher() {
     `<span style="margin-left:6px;font-weight:700">Question ${idx + 1} / ${NB_QUESTIONS}</span>`;
   const inconnue = q.type === "mult" ? a + b : a + c;
   const donnee = q.type === "mult" ? `${a}${c} = ${fr(q.connu)} cm` : `${a}${b} = ${fr(q.connu)} cm`;
-  $("enonce").textContent = `Le triangle ${a}${b}${c} est rectangle en ${b}. On a ${b}${a}${c} = ${q.ang}° et ${donnee}. Calcule ${inconnue}.`;
+  $("enonce").textContent = `Le triangle ${a}${b}${c} est rectangle en ${b}. On a ${angleNom(a, b, c)} = ${q.ang}° et ${donnee}. Calcule ${inconnue}.`;
   const fg = figure(q);
   $("fig").innerHTML = fg.html; $("fig").style.maxWidth = fg.maxw + "px";
   $("consigne2").textContent = `Étape 2 : calcule ${inconnue} et écris sa longueur arrondie au dixième.`;
@@ -256,7 +284,8 @@ function verifier1() {
     $("bubble").classList.add("ok");
     $("opSel").disabled = true; $("ang").disabled = true;
     $("step1").hidden = true; $("step2").hidden = false; etape = 2;
-    message(`Bien vu : ${op} cos(${q.ang}°). Tu peux maintenant calculer.`, "ok");
+    const [a1, b1, c1] = q.noms, inc = q.type === "mult" ? a1 + b1 : a1 + c1;
+    message(`Bien ! ${inc} = ${fr(q.connu)} ${op} cos(${q.ang}°). Utilise maintenant ta calculatrice pour conclure.`, "ok");
     $("len").focus();
     return;
   }
@@ -274,26 +303,27 @@ function verifier1() {
 
 /* ---------- Étape 2 : longueur ---------- */
 function verifier2() {
-  const q = questions[idx];
+  const q = questions[idx], [a, b, c] = q.noms;
   const brut = $("len").value.trim().replace(",", ".").replace(/\s*cm$/i, "");
   const v = parseFloat(brut);
   if (brut === "" || isNaN(v)) return message("Écris un nombre, par exemple 7,5.", "info");
   essais++;
   if (Math.abs(v - q.reponse) < 0.001) {
     const gain = (erreur1 || essais > 1) ? 0.5 : 1;
-    score += gain;
-    return fin("ok", gain === 1 ? `Bravo ! ${fr(q.reponse)} cm. +1 point.`
-                                : `Bien ! ${fr(q.reponse)} cm. +0,5 point (il t'a fallu un deuxième essai).`);
+    score += gain; q.gain = gain;
+    const eq = q.type === "mult" ? `${a}${b} = ${a}${c} × cos(${q.ang}°) = ${fr(q.reponse)} cm`
+                                 : `${a}${c} = ${a}${b} ÷ cos(${q.ang}°) = ${fr(q.reponse)} cm`;
+    return fin("ok", `${gain === 1 ? "Bravo !" : "Bien !"}<br>${a}${b}${c} est rectangle en ${b}, donc on a : ${eq}.<br>` +
+                     `${gain === 1 ? "+1 point" : "+0,5 point (il t'a fallu un deuxième essai)"}`, true);
   }
   if (essais < ESSAIS_LONGUEUR) {
     return message("Pas tout à fait. Vérifie ton calcul et ton arrondi au dixième, puis réessaie.", "bad");
   }
-  const [a, b, c] = q.noms;
   const calcul = q.type === "mult" ? `${a}${b} = ${fr(q.connu)} × cos(${q.ang}°)` : `${a}${c} = ${fr(q.connu)} ÷ cos(${q.ang}°)`;
   fin("bad", `Ce n'est pas ça. La bonne réponse était ${fr(q.reponse)} cm : ${calcul}.`);
 }
-function fin(type, txt) {
-  message(txt, type);
+function fin(type, txt, html) {
+  message(txt, type, html);
   $("len").disabled = true; $("btn2").disabled = true;
   const dernier = idx === NB_QUESTIONS - 1;
   $("next").textContent = dernier ? "Voir mon score" : "Question suivante";
@@ -303,12 +333,39 @@ function suivante() {
   if (idx < NB_QUESTIONS - 1) { idx++; afficher(); return; }
   $("quiz").hidden = true; $("end").hidden = false;
   $("dots").innerHTML = "";
+  $("envoi").hidden = false; $("btnEnvoi").disabled = false; $("btnEnvoi").textContent = "Envoyer mon score";
+  messageEnvoi("", "");
   $("score").textContent = `${fr(score)} / ${NB_QUESTIONS}`;
   $("bilan").textContent = score === NB_QUESTIONS ? "Sans faute, bravo !"
     : score >= 3 ? "Bon travail ! Encore un essai pour viser le sans-faute ?"
     : "Continue à t'entraîner : relis la méthode et recommence.";
 }
 
+/* ---------- Envoi du score par mail (EmailJS) ---------- */
+function messageEnvoi(txt, type) { const m = $("msgEnvoi"); m.textContent = txt; m.className = "msg " + type; }
+function envoyer(e) {
+  e.preventDefault();
+  const prenom = $("prenom").value.trim(), classe = $("classe").value.trim();
+  if (!prenom || !classe) return messageEnvoi("Écris ton prénom et ta classe avant d'envoyer.", "info");
+  if (EMAILJS.publicKey.startsWith("VOTRE")) return messageEnvoi("L'envoi par mail n'est pas encore configuré (clés EmailJS à renseigner dans le code).", "bad");
+  if (typeof emailjs === "undefined") return messageEnvoi("Le service d'envoi n'a pas pu se charger. Montre ton score à ton professeur.", "bad");
+  const params = {
+    exerciseur: "Trigonométrie - Calculer une longueur avec le cosinus",
+    prenom, classe,
+    score: `${fr(score)} / ${NB_QUESTIONS}`,
+    date: new Date().toLocaleString("fr-FR")
+  };
+  $("btnEnvoi").disabled = true; $("btnEnvoi").textContent = "Envoi en cours…";
+  messageEnvoi("", "");
+  emailjs.send(EMAILJS.serviceId, EMAILJS.templateId, params, { publicKey: EMAILJS.publicKey })
+    .then(() => { $("envoi").hidden = true; messageEnvoi(`Merci ${prenom} ! Ton score a bien été envoyé à ton professeur.`, "ok"); })
+    .catch(() => {
+      $("btnEnvoi").disabled = false; $("btnEnvoi").textContent = "Envoyer mon score";
+      messageEnvoi("L'envoi a échoué. Vérifie ta connexion et réessaie. Sinon, montre ton score à ton professeur.", "bad");
+    });
+}
+
+$("envoi").onsubmit = envoyer;
 $("btn1").onclick = verifier1;
 $("btn2").onclick = verifier2;
 $("next").onclick = suivante;
