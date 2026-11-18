@@ -80,13 +80,16 @@ button:disabled,input:disabled{opacity:.7; cursor:not-allowed}
 .work{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(260px,1fr);gap:16px;align-items:start}
 @media(max-width:860px){.work{grid-template-columns:1fr}}
 .fig.noarrow .arrow,.fig.noarrow .bubble{display:none}
+.mv{transition:transform .5s ease}
+.fig:not(.noarrow) svg .mv{transform:translate(var(--dx),var(--dy))}
+.fig:not(.noarrow) .natbox.mv{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy)))}
 .pill{margin-left:10px;background:#fff;border:2px solid var(--ink);border-radius:999px;padding:2px 12px;font-weight:700;white-space:nowrap}
 .hat{position:relative;display:inline-block;line-height:1}
 .hat::after{content:"";position:absolute;left:50%;top:-.2em;width:.3em;height:.3em;border-left:.09em solid currentColor;border-top:.09em solid currentColor;transform:translateX(-50%) rotate(45deg)}
 .natbox select{font-family:"Segoe UI",Arial,Helvetica,sans-serif}
 .natbox{position:absolute;transform:translate(-50%,-50%);white-space:nowrap}
 .nat{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0 10px;font-weight:700}
-.natbox select{font:inherit;font-weight:700;border:2px solid var(--ink);border-radius:8px;padding:.25em .4em;background:#fff;color:var(--ink);cursor:pointer}
+.natbox select{text-align:center;text-align-last:center;font:inherit;font-weight:700;border:2px solid var(--ink);border-radius:8px;padding:.25em .4em;background:#fff;color:var(--ink);cursor:pointer}
 .natbox select.ok{background:var(--ok-bg);border-color:var(--ok)}
 .natbox select.bad{background:var(--bad-bg);border-color:var(--bad)}
 .natbox select:disabled{opacity:1;color:var(--ink);cursor:default;appearance:none;-webkit-appearance:none;padding-right:.5em}
@@ -228,64 +231,122 @@ function figure(q) {
   const pos = (phi, r) => ({ x: A.x + r * Math.cos(phi), y: A.y - r * Math.sin(phi) });
   [A, B, C].forEach(pt);
 
-  // Flèche : arc autour du sommet A, toujours à l'extérieur du triangle
-  const d = Math.min(48, 0.45 * AB), R = 135, marge = 9 * Math.PI / 180;
-  const p0 = th + marge, p1 = 2 * Math.PI - marge, pts = [];
-  for (let m = 0; m <= 48; m++) { const t = m / 48; pts.push(pos(p0 + (p1 - p0) * t, d + (R - d) * Math.sin(Math.PI * t))); }
-  pts.forEach(pt);
-  const sens = q.type === "mult" ? pts : pts.slice().reverse();
-  const chemin = "M " + sens.map(f).join(" L ");
-  const M = T(pos((p0 + p1) / 2, R));                           // centre de la bulle
-  const BW = 172, BH = 46;
-  boites.push([M.x - BW / 2, M.y - BH / 2, M.x + BW / 2, M.y + BH / 2]);
-
   const hyp = a + c, adj = a + b;
   const txtHyp = q.type === "mult" ? `${hyp} = ${fr(q.connu)} cm` : `${hyp} = ?`;
   const txtAdj = q.type === "mult" ? `${adj} = ?` : `${adj} = ${fr(q.connu)} cm`;
   const colHyp = q.type === "mult" ? "var(--known)" : "var(--unknown)";
   const colAdj = q.type === "mult" ? "var(--unknown)" : "var(--known)";
-  const ph = { x: A.x + (C.x - A.x) * .8, y: A.y + (C.y - A.y) * .8 };
-  const pa = { x: A.x + Math.max(AB / 2, 125), y: A.y };
   const ar = 38, sweep = mx ? 1 : 0;
 
-  // Menus placés sous l'étiquette : si l'étiquette est au-dessus de son segment, on l'éloigne pour laisser la place au menu
-  const extra = (dir, base) => { const u = lin(dir), len = Math.hypot(u.x, u.y) || 1, ux = u.x / len, uy = u.y / len; return (Math.abs(ux) <= 0.6 && uy < -0.2) ? base + Math.min(150, 40 / Math.abs(uy)) : base; };
-  const hOff = extra({ x: n.x, y: n.y }, 30), aOff = extra({ x: 0, y: 1 }, 34);
+  // Lettres des sommets et « ? » de l'angle (calculés d'abord pour servir d'obstacles)
+  const nb0 = boites.length;
+  const tAng = lab(pos(th / 2, 70), { x: 0, y: 0 }, 16, "#1b2a4a", q.ang + "°");
+  const tA = lab(A, { x: -14, y: 10 }, 20, "#1b2a4a", a);
+  const tB = lab(B, { x: 14, y: 10 }, 20, "#1b2a4a", b);
+  const tC = lab(C, { x: 14, y: -10 }, 20, "#1b2a4a", c);
+  const fixes = boites.slice(nb0);
+
+  // Étiquette + menu empilés vers l'extérieur, tous deux centrés sur le milieu de chaque côté
+  const optLong = `côté adjacent à l'angle ${angleTxt(a, b, c)}`, FS = 15, SW = Math.round((optLong.length + 3) * FS * 0.52 + 30), SH = 30;
+  const LS = 19, GAP = 8;
+  const cotes = {
+    hyp: { mid: { x: (A.x + C.x) / 2, y: (A.y + C.y) / 2 }, dir: { x: n.x, y: n.y }, vers: C, txt: txtHyp, col: colHyp },
+    adj: { mid: { x: (A.x + B.x) / 2, y: (A.y + B.y) / 2 }, dir: { x: 0, y: 1 }, vers: B, txt: txtAdj, col: colAdj }
+  };
+  const base = {};
+  Object.keys(cotes).forEach(k => {
+    const cd = cotes[k], P = T(cd.mid), u = lin(cd.dir), ul = Math.hypot(u.x, u.y) || 1, ux = u.x / ul, uy = u.y / ul;
+    const tv = lin({ x: cd.vers.x - A.x, y: cd.vers.y - A.y }), tl = Math.hypot(tv.x, tv.y) || 1;
+    const sup = (w, h) => Math.abs(ux) * w / 2 + Math.abs(uy) * h / 2;   // demi-étendue d'une boîte le long de la normale
+    const lw = cd.txt.length * LS * 0.62, lh = LS * 1.2;
+    let lp, sp;
+    if (Math.abs(ux) > 0.5) {
+      // côté plutôt vertical : colonne (étiquette au-dessus du menu) du côté extérieur, centrée verticalement sur le milieu du côté
+      const cx = P.x + Math.sign(ux) * (SW / 2 + 16 + Math.abs(uy) * 30);
+      lp = { x: cx, y: P.y - (SH + 4) / 2 }; sp = { x: cx, y: P.y + (lh + 4) / 2 };
+    } else {
+      // côté plutôt horizontal : étiquette au-dessus/dessous du côté, menu juste derrière, sur la même verticale
+      const t1 = sup(lw, lh) + GAP;
+      lp = { x: P.x + ux * t1, y: P.y + uy * t1 };
+      const vs = uy < -0.2 ? -1 : 1;
+      sp = { x: lp.x, y: lp.y + vs * (lh / 2 + SH / 2 + 4) };
+    }
+    base[k] = { lp, sp, lw, lh, tx: tv.x / tl, ty: tv.y / tl };
+  });
+  const bloc = (k, sl, ss) => {                                     // étiquette décalée de sl, menu décalé de ss, le long du côté (en s'éloignant de A)
+    const e = base[k], lp = { x: e.lp.x + e.tx * sl, y: e.lp.y + e.ty * sl }, sp = { x: e.sp.x + e.tx * ss, y: e.sp.y + e.ty * ss };
+    return {
+      lp, sp,
+      bx: [[lp.x - e.lw / 2, lp.y - e.lh / 2, lp.x + e.lw / 2, lp.y + e.lh / 2], [sp.x - SW / 2, sp.y - SH / 2, sp.x + SW / 2, sp.y + SH / 2]]
+    };
+  };
+
+  // Flèche de l'hypoténuse vers le côté adjacent : arc autour du sommet A, à l'extérieur du triangle
+  const d = Math.min(48, 0.45 * AB), marge = 9 * Math.PI / 180;
+  const p0 = th + marge, p1 = 2 * Math.PI - marge, BW = 172, BH = 46;
+  const arc = R => {
+    const ps = [];
+    for (let m = 0; m <= 48; m++) { const t = m / 48; ps.push(T(pos(p0 + (p1 - p0) * t, d + (R - d) * Math.sin(Math.PI * t)))); }
+    return { ps, M: T(pos((p0 + p1) / 2, R)) };
+  };
+  const inb = (p, bx, pad) => p.x > bx[0] - pad && p.x < bx[2] + pad && p.y > bx[1] - pad && p.y < bx[3] + pad;
+  const ovb = (r, bx, pad) => r[0] < bx[2] + pad && r[2] > bx[0] - pad && r[1] < bx[3] + pad && r[3] > bx[1] - pad;
+  // Recherche des décalages (étiquette et menu séparément) le long de chaque côté, sans chevauchement
+  const croise = (u, v) => u.bx.some(p => v.bx.some(q => ovb(p, q, 4)));
+  const chercher = (ps, bub) => {
+    const meilleurs = {};
+    Object.keys(cotes).forEach(k => {
+      const liste = [];
+      for (let sl = 0; sl <= 240; sl += 8) for (let ss = 0; ss <= 240; ss += 8) {
+        const bl = bloc(k, sl, ss);
+        let cost = (sl + ss) * 0.4 + Math.abs(sl - ss) * 1.2;
+        bl.bx.forEach(bx => {
+          cost += ps.filter(p => inb(p, bx, 9)).length * 200;
+          if (bub && ovb(bub, bx, 4)) cost += 300;
+          fixes.forEach(fx => { if (ovb(fx, bx, 5)) cost += 400; });
+        });
+        if (ovb(bl.bx[0], bl.bx[1], 2)) cost += 1000;
+        liste.push({ cost, bl });
+      }
+      liste.sort((x, y) => x.cost - y.cost);
+      meilleurs[k] = liste.slice(0, 6);
+    });
+    let r = null;
+    meilleurs.hyp.forEach(h => meilleurs.adj.forEach(ad => {
+      const cost = h.cost + ad.cost + (croise(h.bl, ad.bl) ? 300 : 0);
+      if (!r || cost < r.cost) r = { cost, bh: h.bl, ba: ad.bl };
+    }));
+    return r;
+  };
+  // Disposition 1 (étape 1, sans flèche) : étiquettes et menus centrés sur leur côté
+  const lyA = chercher([], null);
+  // Disposition 2 (flèche visible) : rayon de l'arc et décalages évitant la flèche
+  let best = null;
+  for (let R = 110; R <= 260; R += 10) {
+    const { ps, M: Mm } = arc(R), bub = [Mm.x - BW / 2, Mm.y - BH / 2, Mm.x + BW / 2, Mm.y + BH / 2];
+    const r = chercher(ps, bub); r.cost += R * 0.12;
+    if (!best || r.cost < best.cost) best = { ...r, R, ps, Mm };
+  }
+  const { ps: pts, Mm: M, bh, ba } = best;
+  const lblPos = { hyp: lyA.bh.lp, adj: lyA.ba.lp }, selPos = { hyp: lyA.bh.sp, adj: lyA.ba.sp };
+  const dLbl = { hyp: { x: bh.lp.x - lyA.bh.lp.x, y: bh.lp.y - lyA.bh.lp.y }, adj: { x: ba.lp.x - lyA.ba.lp.x, y: ba.lp.y - lyA.ba.lp.y } };
+  const dSel = { hyp: { x: bh.sp.x - lyA.bh.sp.x, y: bh.sp.y - lyA.bh.sp.y }, adj: { x: ba.sp.x - lyA.ba.sp.x, y: ba.sp.y - lyA.ba.sp.y } };
+  pts.forEach(p => boites.push([p.x, p.y, p.x, p.y]));
+  const chemin = "M " + (q.type === "mult" ? pts : pts.slice().reverse()).map(p => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" L ");
+  boites.push([M.x - BW / 2, M.y - BH / 2, M.x + BW / 2, M.y + BH / 2]);
+  [bh, ba, lyA.bh, lyA.ba].forEach(l => l.bx.forEach(bx => boites.push(bx)));
+  const labC = k => `<text class="mv" style="--dx:${dLbl[k].x.toFixed(1)}px;--dy:${dLbl[k].y.toFixed(1)}px" x="${lblPos[k].x.toFixed(1)}" y="${lblPos[k].y.toFixed(1)}" font-size="${LS}" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="${cotes[k].col}">${cotes[k].txt}</text>`;
   const corps = `
     <polygon points="${f(A)} ${f(B)} ${f(C)}" fill="#f1f5ff" stroke="#1b2a4a" stroke-width="3" stroke-linejoin="round"/>
     <path d="M ${f({ x: B.x - 16, y: B.y })} L ${f({ x: B.x - 16, y: B.y - 16 })} L ${f({ x: B.x, y: B.y - 16 })}" fill="none" stroke="#1b2a4a" stroke-width="2"/>
     <path d="M ${f({ x: A.x + ar, y: A.y })} A ${ar} ${ar} 0 0 ${sweep} ${f({ x: A.x + ar * cs, y: A.y - ar * sn })}" fill="none" stroke="#1b2a4a" stroke-width="2"/>
-    ${lab(pos(th / 2, 70), { x: 0, y: 0 }, 16, "#1b2a4a", q.ang + "°")}
+    ${tAng}
     <path class="arrow" d="${chemin}" fill="none" stroke="#1b2a4a" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#ah)"/>
-    ${lab(A, { x: -14, y: 10 }, 20, "#1b2a4a", a)}
-    ${lab(B, { x: 14, y: 10 }, 20, "#1b2a4a", b)}
-    ${lab(C, { x: 14, y: -10 }, 20, "#1b2a4a", c)}
-    ${lab(ph, { x: hOff * n.x, y: hOff * n.y }, 19, colHyp, txtHyp, "hyp")}
-    ${lab(pa, { x: 0, y: aOff }, 19, colAdj, txtAdj, "adj")}`;
-
-  // Menus de l'étape 1 : posés à côté de l'étiquette de chaque côté, en s'éloignant du segment
-  const optLong = `côté adjacent à l'angle ${angleTxt(a, b, c)}`, FS = 15, SW = Math.round((optLong.length + 3) * FS * 0.52 + 30), SH = 30;
-  const selPos = {}, placed = [];
-  const R4 = bx => ({ x1: bx[0], y1: bx[1], x2: bx[2], y2: bx[3] });
-  const ovl = (r, b) => Math.max(0, Math.min(r.x2, b.x2) - Math.max(r.x1, b.x1)) * Math.max(0, Math.min(r.y2, b.y2) - Math.max(r.y1, b.y1));
-  const obst = pts.map(T);                                       // flèche
-  [[A, B], [A, C], [B, C]].forEach(([p1, p2]) => { for (let i = 0; i <= 20; i++) obst.push(T({ x: p1.x + (p2.x - p1.x) * i / 20, y: p1.y + (p2.y - p1.y) * i / 20 })); });
-  const bub = { x1: M.x - BW / 2, x2: M.x + BW / 2, y1: M.y - BH / 2, y2: M.y + BH / 2 };
-  [["hyp", { x: n.x, y: n.y }, "adj"], ["adj", { x: 0, y: 1 }, "hyp"]].forEach(([k, dir, autre]) => {
-    const bx = lboxes[k], lx = (bx[0] + bx[2]) / 2, ly = (bx[1] + bx[3]) / 2, lw = bx[2] - bx[0];
-    const u = lin(dir), ux = u.x / (Math.hypot(u.x, u.y) || 1), sg = Math.abs(ux) > 0.3 ? Math.sign(ux) : 0;
-    const xa = sg > 0 ? bx[0] + SW / 2 : sg < 0 ? bx[2] - SW / 2 : lx, yb = bx[3] + 6 + SH / 2, dh = lw / 2 + SW / 2 + 10, s1 = sg || 1;
-    let best = null, bc = 1e12;
-    [[xa, yb], [lx, yb], [lx + s1 * dh, ly], [lx - s1 * dh, ly], [xa, bx[1] - 6 - SH / 2]].forEach(([x, y], i) => {
-      const r = { x1: x - SW / 2 - 4, x2: x + SW / 2 + 4, y1: y - SH / 2 - 4, y2: y + SH / 2 + 4 };
-      const c = i * 5 + obst.filter(o => o.x > r.x1 && o.x < r.x2 && o.y > r.y1 && o.y < r.y2).length * 40
-        + ovl(r, bub) + ovl(r, R4(lboxes[autre])) * 2 + placed.reduce((t, b) => t + ovl(r, b), 0) * 2;
-      if (c < bc) { bc = c; best = { x, y }; }
-    });
-    selPos[k] = best;
-    placed.push({ x1: best.x - SW / 2, x2: best.x + SW / 2, y1: best.y - SH / 2, y2: best.y + SH / 2 });
-    boites.push([best.x - SW / 2, best.y - SH / 2, best.x + SW / 2, best.y + SH / 2]);
-  });
+    ${tA}
+    ${tB}
+    ${tC}
+    ${labC("hyp")}
+    ${labC("adj")}`;
 
   // Cadre ajusté au contenu (avec une taille minimale), centré
   const x0 = Math.min(...boites.map(t => t[0])), x1 = Math.max(...boites.map(t => t[2]));
@@ -307,7 +368,7 @@ function figure(q) {
   </div>`;
   const optsH = `<option value="">?</option><option value="hyp">hypoténuse</option><option value="adj">${optLong}</option>`;
   const menus = ["hyp", "adj"].map(k => `
-  <div class="natbox" style="left:${((selPos[k].x - vx) / W * 100).toFixed(2)}%;top:${((selPos[k].y - vy) / Hh * 100).toFixed(2)}%;font-size:max(11px,${(FS / W * 100).toFixed(2)}cqw)">
+  <div class="natbox mv" style="--dx:${(dSel[k].x / W * 100).toFixed(3)}cqw;--dy:${(dSel[k].y / W * 100).toFixed(3)}cqw;left:${((selPos[k].x - vx) / W * 100).toFixed(2)}%;top:${((selPos[k].y - vy) / Hh * 100).toFixed(2)}%;font-size:max(11px,${(FS / W * 100).toFixed(2)}cqw)">
     <select id="nat_${k}" data-att="${k}" aria-label="Nature du côté ${k === "hyp" ? hyp : adj}">${optsH}</select>
   </div>`).join("");
   return { html: svg + bulle + menus, maxw: Math.round(W * 1.25), ratio: W / Hh };
